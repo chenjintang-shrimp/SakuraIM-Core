@@ -43,6 +43,15 @@ wheels = [
 ]
 
 [[package]]
+name = "asq"
+version = "2.0.0"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/ef/af/7263f311aa8b4b3df4cf8fa951375efb179b60cb5d75118bc8a1041de42c/asq-2.0.0.tar.gz", hash = "sha256:76f579672196d1d0a9ccadc25e092fcd2674879369a62eaf7a962d1e2ec78823" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/57/8f/abdcff7a42b0302ed024ad8cdda39e822d722db6e36a2eeaccf662870b45/asq-2.0.0-py3-none-any.whl", hash = "sha256:3c28c26d666fcbaaf856f78f087a9c80a8317b4f7a5427bbfc040bf5ca9e26fb" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -314,6 +323,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiosqlite" },
+    { name = "asq" },
     { name = "dotenv" },
     { name = "fastapi" },
     { name = "loguru" },
@@ -334,6 +344,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
+    { name = "asq", specifier = ">=2.0.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "fastapi", specifier = ">=0.136.3" },
     { name = "loguru", specifier = ">=0.7.3" },
