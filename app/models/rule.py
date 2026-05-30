@@ -8,5 +8,5 @@ class Rule(SQLModel, table=True):
     rid: int | None = Field(default=None, primary_key=True, index=True)
     belong_sid: int
     uid_from: int
-    uid_to: int
+    pid_to: int
     aid_to: int
