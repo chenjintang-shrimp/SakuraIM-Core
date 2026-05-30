@@ -1,7 +1,10 @@
 from enum import StrEnum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
+
+from app.models.messages.base import MessageBase, MessagePackType
 
 
 class CommandType(StrEnum):
@@ -12,7 +15,8 @@ class CommandType(StrEnum):
     COMMAND_TEMP_SESSION = "temp_session"
 
 
-class Command(BaseModel):
+class Command(MessageBase):
+    type:Literal[MessagePackType.COMMAND] = MessagePackType.COMMAND
     command: CommandType
     args: list[str]
     from_aid: UUID

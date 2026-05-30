@@ -1,8 +1,12 @@
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.models.messages.base import MessageBase, MessagePackType
 
-class Hello(BaseModel):
+
+class Hello(MessageBase):
+    type: Literal[MessagePackType.HELLO] = MessagePackType.HELLO
     aid: UUID
     platform: str

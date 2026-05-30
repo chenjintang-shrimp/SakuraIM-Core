@@ -1,7 +1,10 @@
 from enum import StrEnum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
+
+from app.models.messages.base import MessagePackType
 
 
 class MessageType(StrEnum):
@@ -11,6 +14,7 @@ class MessageType(StrEnum):
 
 
 class Message(BaseModel):
+    type: Literal[MessagePackType.MESSAGE]
     message_type: MessageType
     sender_aid: UUID
     body: str
