@@ -28,6 +28,7 @@ app = FastAPI(
     description="Sakura Core",
     version="0.1.0",
     debug=settings.debug,
+    lifespan=lifespan,
 )
 
 app.include_router(adapter_routers)
