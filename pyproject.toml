@@ -1,0 +1,28 @@
+[project]
+name = "sakuraim"
+version = "0.1.0"
+description = "A bot for bridging different ims together"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "dotenv>=0.9.9",
+    "fastapi>=0.136.3",
+    "loguru>=0.7.3",
+    "nuitka>=4.1.2",
+    "pathlib>=1.0.1",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    "sqlalchemy>=2.0.50",
+    "sqlmodel>=0.0.38",
+]
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.15",
+    "ty>=0.0.40",
+]
