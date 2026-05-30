@@ -17,6 +17,3 @@ class Session(SQLModel, table=True):
     source: int = Field(index=True)
     state: SessionState
     target: int = Field(index=True)
-
-    class Config:
-        orm_mode = True
