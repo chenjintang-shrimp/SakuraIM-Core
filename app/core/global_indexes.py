@@ -15,13 +15,35 @@ from app.models import Adapter, Session, SessionState, User
 @dataclass(slots=True)
 class GlobalIndexes:
     Sessions: dict[tuple[int, UUID], Session] = field(default_factory=dict)
+    Sessions_by_sid: dict[int, Session] = field(default_factory=dict)
     Users: dict[tuple[str, str], User] = field(default_factory=dict)
     Usernames: dict[str, User] = field(default_factory=dict)
     Adapters: dict[UUID, str] = field(default_factory=dict)
+    Adapters_by_platform: dict[str, list[UUID]] = field(default_factory=dict)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
-    def get_session(self, uid: int, aid: UUID) -> Session | None:
-        return self.Sessions.get((uid, aid))
+    def get_session(
+        self,
+        *,
+        sid: int | None = None,
+        uid: int | None = None,
+        aid: UUID | None = None,
+    ) -> Session | list[Session] | None:
+        if sid is not None:
+            return self.Sessions_by_sid.get(sid)
+        elif uid is not None and aid is not None:
+            return self.Sessions.get((uid, aid))
+        elif uid is not None:
+            seen = set()
+            result = []
+            for session in self.Sessions.values():
+                if session.sid is None or session.sid in seen:
+                    continue
+                if session.source == uid or session.target == uid:
+                    seen.add(session.sid)
+                    result.append(session)
+            return result
+        return None
 
     def get_user(self, pid: str, platform: str) -> User | None:
         return self.Users.get((pid, platform))
@@ -31,6 +53,9 @@ class GlobalIndexes:
 
     def get_platform(self, aid: UUID) -> str | None:
         return self.Adapters.get(aid)
+
+    def get_adapters_by_platform(self, platform: str) -> list[UUID]:
+        return self.Adapters_by_platform.get(platform, [])
 
     def get_target(self, sender_uid: int, sender_aid: UUID) -> tuple[int, UUID] | None:
         session = self.Sessions.get((sender_uid, sender_aid))
@@ -51,11 +76,15 @@ class GlobalIndexes:
         async with self._lock:
             self.Sessions[(session.source, session.source_aid)] = session
             self.Sessions[(session.target, session.target_aid)] = session
+            if session.sid is not None:
+                self.Sessions_by_sid[session.sid] = session
 
     async def remove_session(self, session: Session) -> None:
         async with self._lock:
             self.Sessions.pop((session.source, session.source_aid), None)
             self.Sessions.pop((session.target, session.target_aid), None)
+            if session.sid is not None:
+                self.Sessions_by_sid.pop(session.sid, None)
 
         session.state = SessionState.ENDED
 
@@ -79,17 +108,28 @@ class GlobalIndexes:
     async def add_adapter(self, aid: UUID, platform: str) -> None:
         async with self._lock:
             self.Adapters[aid] = platform
+            self.Adapters_by_platform.setdefault(platform, [])
+            if aid not in self.Adapters_by_platform[platform]:
+                self.Adapters_by_platform[platform].append(aid)
 
     async def remove_adapter(self, aid: UUID) -> None:
         async with self._lock:
-            self.Adapters.pop(aid, None)
+            platform = self.Adapters.pop(aid, None)
+            if platform is not None:
+                adapters = self.Adapters_by_platform.get(platform, [])
+                if aid in adapters:
+                    adapters.remove(aid)
+                    if not adapters:
+                        self.Adapters_by_platform.pop(platform, None)
 
     async def clear(self) -> None:
         async with self._lock:
             self.Sessions.clear()
+            self.Sessions_by_sid.clear()
             self.Users.clear()
             self.Usernames.clear()
             self.Adapters.clear()
+            self.Adapters_by_platform.clear()
 
 
 _global_indexes: GlobalIndexes | None = None
@@ -131,6 +171,9 @@ async def init_global_indexes() -> None:
 
         for adapter in all_adapters:
             index.Adapters[adapter.aid] = adapter.platform
+            index.Adapters_by_platform.setdefault(adapter.platform, [])
+            if adapter.aid not in index.Adapters_by_platform[adapter.platform]:
+                index.Adapters_by_platform[adapter.platform].append(adapter.aid)
 
         for user in all_users:
             index.Usernames[user.username] = user
@@ -143,6 +186,8 @@ async def init_global_indexes() -> None:
             db_session.add(session)
             index.Sessions[(session.source, session.source_aid)] = session
             index.Sessions[(session.target, session.target_aid)] = session
+            if session.sid is not None:
+                index.Sessions_by_sid[session.sid] = session
 
         await db_session.commit()
 
