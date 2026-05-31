@@ -1,12 +1,8 @@
-import json
-import platform
-
 from fastapi import APIRouter, WebSocket
 from loguru import logger
 from pydantic import ValidationError
 
-from app.db import SessionDep
-from app.models.adapters import Adapter
+from app.core.connection_manager import manager
 from app.models.messages import Hello
 
 router = APIRouter(prefix="/adapter", tags=["adapter"])
@@ -22,7 +18,8 @@ async def dispatch_messages(connection: WebSocket):
         message = Hello.model_validate(payload)
         aid = message.aid
         platform = message.platform
-
+        # 放入连接池中
+        await manager.register_connection(connection, aid)
     except ValidationError:
         assert connection.client is not None  # 毋庸置疑！
         logger.error(

@@ -5,6 +5,7 @@ from loguru import logger
 
 from app.configs import get_settings
 from app.core.apis import router as adapter_routers
+from app.core.global_indexes import init_global_indexes
 from app.db import init_db
 from app.logger import setup_logging
 
@@ -17,6 +18,8 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Sakura Core")
     await init_db()
     logger.info("DB initialized.")
+    await init_global_indexes()
+    logger.info("Global states have been recovered from DB.")
     try:
         yield
     finally:
