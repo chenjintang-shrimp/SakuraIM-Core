@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from typing import Sequence
 from uuid import UUID
@@ -20,7 +19,6 @@ class GlobalIndexes:
     Usernames: dict[str, User] = field(default_factory=dict)
     Adapters: dict[UUID, str] = field(default_factory=dict)
     Adapters_by_platform: dict[str, list[UUID]] = field(default_factory=dict)
-    _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def get_session(
         self,
@@ -72,64 +70,57 @@ class GlobalIndexes:
         )
         return None
 
-    async def add_session(self, session: Session) -> None:
-        async with self._lock:
-            self.Sessions[(session.source, session.source_aid)] = session
-            self.Sessions[(session.target, session.target_aid)] = session
-            if session.sid is not None:
-                self.Sessions_by_sid[session.sid] = session
+    def add_session(self, session: Session) -> None:
+        self.Sessions[(session.source, session.source_aid)] = session
+        self.Sessions[(session.target, session.target_aid)] = session
+        if session.sid is not None:
+            self.Sessions_by_sid[session.sid] = session
 
-    async def remove_session(self, session: Session) -> None:
-        async with self._lock:
-            self.Sessions.pop((session.source, session.source_aid), None)
-            self.Sessions.pop((session.target, session.target_aid), None)
-            if session.sid is not None:
-                self.Sessions_by_sid.pop(session.sid, None)
+    def remove_session(self, session: Session) -> None:
+        self.Sessions.pop((session.source, session.source_aid), None)
+        self.Sessions.pop((session.target, session.target_aid), None)
+        if session.sid is not None:
+            self.Sessions_by_sid.pop(session.sid, None)
 
         session.state = SessionState.ENDED
 
-    async def update_session_state(self, session: Session, state: SessionState) -> None:
+    def update_session_state(self, session: Session, state: SessionState) -> None:
         session.state = state
 
-    async def add_user(self, user: User) -> None:
-        async with self._lock:
-            self.Usernames[user.username] = user
-            for platform, pids in user.bind_platform.items():
-                for aid, pid in pids:
-                    self.Users[(pid, platform)] = user
+    def add_user(self, user: User) -> None:
+        self.Usernames[user.username] = user
+        for platform, pids in user.bind_platform.items():
+            for aid, pid in pids:
+                self.Users[(pid, platform)] = user
 
-    async def remove_user(self, user: User) -> None:
-        async with self._lock:
-            self.Usernames.pop(user.username, None)
-            for platform, pids in user.bind_platform.items():
-                for aid, pid in pids:
-                    self.Users.pop((pid, platform), None)
+    def remove_user(self, user: User) -> None:
+        self.Usernames.pop(user.username, None)
+        for platform, pids in user.bind_platform.items():
+            for aid, pid in pids:
+                self.Users.pop((pid, platform), None)
 
-    async def add_adapter(self, aid: UUID, platform: str) -> None:
-        async with self._lock:
-            self.Adapters[aid] = platform
-            self.Adapters_by_platform.setdefault(platform, [])
-            if aid not in self.Adapters_by_platform[platform]:
-                self.Adapters_by_platform[platform].append(aid)
+    def add_adapter(self, aid: UUID, platform: str) -> None:
+        self.Adapters[aid] = platform
+        self.Adapters_by_platform.setdefault(platform, [])
+        if aid not in self.Adapters_by_platform[platform]:
+            self.Adapters_by_platform[platform].append(aid)
 
-    async def remove_adapter(self, aid: UUID) -> None:
-        async with self._lock:
-            platform = self.Adapters.pop(aid, None)
-            if platform is not None:
-                adapters = self.Adapters_by_platform.get(platform, [])
-                if aid in adapters:
-                    adapters.remove(aid)
-                    if not adapters:
-                        self.Adapters_by_platform.pop(platform, None)
+    def remove_adapter(self, aid: UUID) -> None:
+        platform = self.Adapters.pop(aid, None)
+        if platform is not None:
+            adapters = self.Adapters_by_platform.get(platform, [])
+            if aid in adapters:
+                adapters.remove(aid)
+                if not adapters:
+                    self.Adapters_by_platform.pop(platform, None)
 
-    async def clear(self) -> None:
-        async with self._lock:
-            self.Sessions.clear()
-            self.Sessions_by_sid.clear()
-            self.Users.clear()
-            self.Usernames.clear()
-            self.Adapters.clear()
-            self.Adapters_by_platform.clear()
+    def clear(self) -> None:
+        self.Sessions.clear()
+        self.Sessions_by_sid.clear()
+        self.Users.clear()
+        self.Usernames.clear()
+        self.Adapters.clear()
+        self.Adapters_by_platform.clear()
 
 
 _global_indexes: GlobalIndexes | None = None

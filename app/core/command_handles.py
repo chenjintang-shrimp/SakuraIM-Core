@@ -7,7 +7,8 @@ from loguru import logger
 
 from app.core.connection_manager import manager
 from app.core.global_indexes import GlobalIndexes, get_global_indexes
-from app.models import User
+from app.db import AsyncSessionLocal
+from app.models import Session, SessionState, User
 from app.models.messages import Command, CommandType, Info
 
 
@@ -25,11 +26,7 @@ def select_adapter_by_platform(
             f"User {user.uid} did not bind on platform {platform}"
         )
 
-    bound_aids = (
-        query(all_bound)
-        .select(lambda item: item[0])
-        .to_list()
-    )
+    bound_aids = query(all_bound).select(lambda item: item[0]).to_list()
 
     sessions = index.get_session(uid=user.uid)
     if sessions is not None:
@@ -39,11 +36,7 @@ def select_adapter_by_platform(
             .to_list()
         )
 
-        available = (
-            query(bound_aids)
-            .where(lambda aid: aid not in used_aids)
-            .to_list()
-        )
+        available = query(bound_aids).where(lambda aid: aid not in used_aids).to_list()
 
         if not available:
             return None
@@ -96,10 +89,66 @@ async def handle_new_session_create(command: Command) -> bool:
                 to_aid=command.from_aid,
                 to_pid=command.sender_pid,
                 type="error",
-                body={"error_type": "User Not bind", "user": f"{command.sender_pid}"},
+                body={"error_type": "User Not Found", "user": f"{command.args[0]}"},
             ),
         )
         return False
 
     # 4.选择合适的 adapter
-    return True
+    try:
+        aid = select_adapter_by_platform(target_user, command.args[1], indexs)
+        if aid is None:
+            logger.warning(
+                f"User {command.args[0]} on platform {command.args[1]} has no adapters available."
+            )
+            await manager.send_to(
+                command.from_aid,
+                message=Info(
+                    to_aid=command.from_aid,
+                    to_pid=command.sender_pid,
+                    type="error",
+                    body={
+                        "error_type": "No adapter available",
+                        "user": {command.args[0]},
+                        "platform": command.args[1],
+                    },
+                ),
+            )
+            return False
+        # 5. 创建会话
+        new_session = Session(
+            source=current_user.uid,
+            source_aid=command.from_aid,
+            state=SessionState.ESTABLISHED,
+            target=target_user.uid,
+            target_aid=aid,
+        )
+        indexs.add_session(new_session)
+
+        async with AsyncSessionLocal() as db_session:
+            db_session.add(new_session)
+            await db_session.commit()
+            await db_session.refresh(new_session)
+
+        if new_session.sid is not None:
+            indexs.Sessions_by_sid[new_session.sid] = new_session
+
+        return True
+
+    except UserNotBindInPlatform:
+        logger.warning(
+            f"User {command.args[0]} didn't bind adapter {command.from_aid} in platform {platform}."
+        )
+        await manager.send_to(
+            command.from_aid,
+            message=Info(
+                to_aid=command.from_aid,
+                to_pid=command.sender_pid,
+                type="error",
+                body={"error_type": "User Not bind", "user": f"{command.sender_pid}"},
+            ),
+        )
+        return False
+    except Exception as e:
+        logger.error(f"Exception in handle_new_session_create: {e}")
+        return False
