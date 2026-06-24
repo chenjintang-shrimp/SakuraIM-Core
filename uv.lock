@@ -2,6 +2,18 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 
+[manifest]
+members = [
+    "sakura-core",
+    "sakura-protocol",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "ruff", specifier = ">=0.15.15" },
+    { name = "ty", specifier = ">=0.0.40" },
+]
+
 [[package]]
 name = "aiosqlite"
 version = "0.22.1"
@@ -58,17 +70,6 @@ source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
 sdist = { url = "https://mirrors.aliyun.com/pypi/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44" }
 wheels = [
     { url = "https://mirrors.aliyun.com/pypi/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6" },
-]
-
-[[package]]
-name = "dotenv"
-version = "0.9.9"
-source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
-dependencies = [
-    { name = "python-dotenv" },
-]
-wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/b2/b7/545d2c10c1fc15e48653c91efde329a790f2eecfbbf2bd16003b5db2bab0/dotenv-0.9.9-py2.py3-none-any.whl", hash = "sha256:29cf74a087b31dafdb5a446b6d7e11cbce8ed2741540e2339c69fbef92c94ce9" },
 ]
 
 [[package]]
@@ -162,21 +163,6 @@ dependencies = [
 sdist = { url = "https://mirrors.aliyun.com/pypi/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6" }
 wheels = [
     { url = "https://mirrors.aliyun.com/pypi/packages/0c/29/0348de65b8cc732daa3e33e67806420b2ae89bdce2b04af740289c5c6c8c/loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c" },
-]
-
-[[package]]
-name = "nuitka"
-version = "4.1.2"
-source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/e6/2e/9ea398ca1a4fc458958fdf477ae18d3395bee8c9f8950ca6f0f039ea2585/nuitka-4.1.2.tar.gz", hash = "sha256:efc2359b171d7b63046ca8ec8dee57015c3466a9df74b68a049c2c1a7e93ecee" }
-
-[[package]]
-name = "pathlib"
-version = "1.0.1"
-source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/ac/aa/9b065a76b9af472437a0059f77e8f962fe350438b927cb80184c32f075eb/pathlib-1.0.1.tar.gz", hash = "sha256:6940718dfc3eff4258203ad5021090933e5c04707d5ca8cc9e73c94a7894ea9f" }
-wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/78/f9/690a8600b93c332de3ab4a344a4ac34f00c8f104917061f779db6a918ed6/pathlib-1.0.1-py3-none-any.whl", hash = "sha256:f35f95ab8b0f59e6d354090350b44a80a80635d22efdedfa84c7ad1cf0a74147" },
 ]
 
 [[package]]
@@ -318,49 +304,44 @@ wheels = [
 ]
 
 [[package]]
-name = "sakuraim"
+name = "sakura-core"
 version = "0.1.0"
-source = { virtual = "." }
+source = { virtual = "packages/sakura-core" }
 dependencies = [
     { name = "aiosqlite" },
     { name = "asq" },
-    { name = "dotenv" },
     { name = "fastapi" },
     { name = "loguru" },
-    { name = "nuitka" },
-    { name = "pathlib" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "sakura-protocol" },
     { name = "sqlalchemy" },
     { name = "sqlmodel" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ruff" },
-    { name = "ty" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "asq", specifier = ">=2.0.0" },
-    { name = "dotenv", specifier = ">=0.9.9" },
     { name = "fastapi", specifier = ">=0.136.3" },
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "nuitka", specifier = ">=4.1.2" },
-    { name = "pathlib", specifier = ">=1.0.1" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pydantic-settings", specifier = ">=2.14.1" },
+    { name = "sakura-protocol", editable = "packages/sakura-protocol" },
     { name = "sqlalchemy", specifier = ">=2.0.50" },
     { name = "sqlmodel", specifier = ">=0.0.38" },
 ]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "ruff", specifier = ">=0.15.15" },
-    { name = "ty", specifier = ">=0.0.40" },
+[[package]]
+name = "sakura-protocol"
+version = "0.1.0"
+source = { editable = "packages/sakura-protocol" }
+dependencies = [
+    { name = "pydantic" },
 ]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.13.4" }]
 
 [[package]]
 name = "sqlalchemy"
