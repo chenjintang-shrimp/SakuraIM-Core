@@ -1,7 +1,6 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
 
 from app.models.messages.base import MessageBase, MessagePackType
 
