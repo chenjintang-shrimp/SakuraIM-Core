@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import time
+
 from dataclasses import dataclass, field
 from typing import Sequence
 from uuid import UUID
 
 from loguru import logger
+from sqlalchemy import func
 from sqlmodel import select
 
 from app.db import AsyncSessionLocal
@@ -19,6 +22,7 @@ class GlobalIndexes:
     Usernames: dict[str, User] = field(default_factory=dict)
     Adapters: dict[UUID, str] = field(default_factory=dict)
     Adapters_by_platform: dict[str, list[UUID]] = field(default_factory=dict)
+    VerificationCodes: dict[str, tuple[int, str, str, UUID, float]] = field(default_factory=dict)
 
     def get_session(
         self,
@@ -121,6 +125,21 @@ class GlobalIndexes:
         self.Usernames.clear()
         self.Adapters.clear()
         self.Adapters_by_platform.clear()
+        self.VerificationCodes.clear()
+
+    def add_verification_code(self, code: str, target_uid: int, requester_pid: str, requester_platform: str, requester_aid: UUID, expiry: float) -> None:
+        self.VerificationCodes[code] = (target_uid, requester_pid, requester_platform, requester_aid, expiry)
+
+    def get_verification_code(self, code: str) -> tuple[int, str, str, UUID] | None:
+        data = self.VerificationCodes.get(code)
+        if data is None:
+            return None
+        target_uid, requester_pid, requester_platform, requester_aid, expiry = data
+        if time.time() > expiry:
+            self.VerificationCodes.pop(code, None)
+            return None
+        self.VerificationCodes.pop(code, None)
+        return target_uid, requester_pid, requester_platform, requester_aid
 
 
 _global_indexes: GlobalIndexes | None = None
@@ -148,6 +167,20 @@ async def _get_all_active_sessions(db_session) -> Sequence[Session]:
 async def _get_all_adapters(db_session) -> Sequence[Adapter]:
     stmt = select(Adapter)
     return (await db_session.exec(stmt)).all()
+
+
+async def get_next_sid(db_session) -> int:
+    stmt = select(func.max(Session.sid))
+    result = await db_session.exec(stmt)
+    max_sid = result.one_or_none()
+    return (max_sid or 0) + 1
+
+
+async def get_next_uid(db_session) -> int:
+    stmt = select(func.max(User.uid))
+    result = await db_session.exec(stmt)
+    max_uid = result.one_or_none()
+    return (max_uid or 0) + 1
 
 
 async def init_global_indexes() -> None:
