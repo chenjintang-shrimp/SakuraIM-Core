@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/sakuraim.iml" filepath="$PROJECT_DIR$/.idea/sakuraim.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/SakuraIM.iml" filepath="$PROJECT_DIR$/.idea/SakuraIM.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/sakura-core.iml" filepath="$PROJECT_DIR$/.idea/sakura-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/sakura-protocol.iml" filepath="$PROJECT_DIR$/.idea/sakura-protocol.iml" />
     </modules>
   </component>
 </project>
