@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import Field, dataclass, field
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from fastapi import WebSocket
@@ -43,7 +43,7 @@ class ConnectionManager:
     async def deregister_connection(self, aid: UUID) -> None:
         async with self.lock:
             current = self.active_connections.get(aid)
-            if current is AdapterSession:
+            if current is not None:
                 self.active_connections.pop(aid)
                 logger.info(f"deregistered adapter{aid}")
 

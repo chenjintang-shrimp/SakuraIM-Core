@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     debug: bool = False
-    database_url: str = Field(default="aiosqlite+sqlite:///./data/app.db")
+    database_url: str = Field(default="sqlite+aiosqlite:///./data/app.db")
     listen_host: str = "0.0.0.0"
     listen_port: int = 21229
     worker_count: int = 4
