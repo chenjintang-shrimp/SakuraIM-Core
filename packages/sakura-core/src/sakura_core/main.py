@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from loguru import logger
 
 from sakura_core.configs import get_settings
-from sakura_core.core.apis import router as adapter_routers
+from sakura_core.core.apis import internal_router, router as adapter_routers
 from sakura_core.core.global_indexes import init_global_indexes
 from sakura_core.db import init_db
 from sakura_core.logger import setup_logging
@@ -35,3 +35,4 @@ app = FastAPI(
 )
 
 app.include_router(adapter_routers)
+app.include_router(internal_router)

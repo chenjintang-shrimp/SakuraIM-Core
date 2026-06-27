@@ -2,20 +2,47 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from loguru import logger
+from pydantic import BaseModel
 from pydantic import ValidationError
 
+from sakura_core.configs import get_settings
+from sakura_core.core.adapter_tokens import (
+    issue_adapter_token,
+    revoke_adapter_token,
+    verify_adapter_token,
+)
 from sakura_core.core.command_handles import dispatch_command
-from sakura_core.core.connection_manager import manager
+from sakura_core.core.connection_manager import AdapterSession, manager
 from sakura_core.core.global_indexes import get_global_indexes
 from sakura_core.db import AsyncSessionLocal
 from sakura_core.models import Adapter
-from sakura_protocol.messages import Command, Info, Message
+from sakura_protocol.messages import (
+    AttachmentAuth,
+    AttachmentCapability,
+    Command,
+    Info,
+    Message,
+    Welcome,
+    WelcomeCapabilities,
+)
 from sakura_protocol.messages.base import MessagePackType
 from sakura_protocol.messages.hello import Hello
 
 router = APIRouter(prefix="/adapter", tags=["adapter"])
+internal_router = APIRouter(prefix="/internal/oss", tags=["internal-oss"])
+settings = get_settings()
+
+
+class VerifyTokenRequest(BaseModel):
+    token: str
+
+
+@internal_router.post("/verify-token", status_code=204)
+async def verify_oss_token(request: VerifyTokenRequest) -> None:
+    if not await verify_adapter_token(request.token):
+        raise HTTPException(status_code=401, detail="invalid token")
 
 
 async def _sender_task(websocket: WebSocket, aid_str: str, outbox: asyncio.Queue) -> None:
@@ -41,6 +68,7 @@ async def dispatch_messages(connection: WebSocket):
     aid = None
     platform = None
     sender = None
+    session: AdapterSession | None = None
 
     try:
         # ── 握手阶段 ──────────────────────────────────────────────
@@ -74,16 +102,35 @@ async def dispatch_messages(connection: WebSocket):
                 db_session.add(existing)
                 await db_session.commit()
 
-        # 更新内存索引
-        indexes = get_global_indexes()
-        indexes.add_adapter(aid, platform)
-
         # 加入连接池，拿到 AdapterSession（含 outbox）
         session = await manager.register_connection(connection, aid)
 
         # 启动后台发送任务
         sender = asyncio.create_task(
             _sender_task(connection, aid_str, session.outbox)
+        )
+
+        # 更新内存索引
+        indexes = get_global_indexes()
+        indexes.add_adapter(aid, platform)
+
+        adapter_token = await issue_adapter_token(aid)
+        await manager.send_to(
+            aid,
+            Welcome(
+                version="0.1.0",
+                capabilities=WelcomeCapabilities(
+                    attachments=AttachmentCapability(
+                        enabled=settings.oss_enabled,
+                        base_url=settings.oss_base_url,
+                        ttl_seconds=settings.oss_ttl_seconds,
+                        max_size_bytes=settings.oss_max_size_bytes,
+                        auth=AttachmentAuth(token=adapter_token)
+                        if settings.oss_enabled
+                        else None,
+                    )
+                ),
+            ),
         )
 
         logger.info(f"[{aid_str}] handshake complete (platform={platform})")
@@ -178,7 +225,7 @@ async def dispatch_messages(connection: WebSocket):
 
     finally:
         # 清理：取消发送任务、注销连接、更新内存索引
-        if sender is not None:
+        if sender is not None and session is not None:
             await session.outbox.put(None)  # 让 sender_task 优雅退出
             sender.cancel()
             try:
@@ -187,7 +234,10 @@ async def dispatch_messages(connection: WebSocket):
                 pass
 
         if aid is not None:
-            await manager.deregister_connection(aid)
-            indexes = get_global_indexes()
-            indexes.remove_adapter(aid)
-            logger.info(f"[{aid}] cleaned up")
+            if session is not None:
+                removed = await manager.deregister_connection(aid, session)
+                if removed:
+                    await revoke_adapter_token(aid)
+                    indexes = get_global_indexes()
+                    indexes.remove_adapter(aid)
+                    logger.info(f"[{aid}] cleaned up")

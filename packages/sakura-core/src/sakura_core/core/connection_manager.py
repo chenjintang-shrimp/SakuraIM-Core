@@ -40,12 +40,19 @@ class ConnectionManager:
             logger.info(f"registered adapter{aid}")
         return session
 
-    async def deregister_connection(self, aid: UUID) -> None:
+    async def deregister_connection(
+        self, aid: UUID, session: AdapterSession | None = None
+    ) -> bool:
         async with self.lock:
             current = self.active_connections.get(aid)
-            if current is not None:
-                self.active_connections.pop(aid)
-                logger.info(f"deregistered adapter{aid}")
+            if current is None:
+                return False
+            if session is not None and current is not session:
+                logger.info(f"skip deregistering stale adapter session {aid}")
+                return False
+            self.active_connections.pop(aid)
+            logger.info(f"deregistered adapter{aid}")
+            return True
 
     async def send_to(self, aid: UUID, message: MessageBase) -> bool:
         async with self.lock:

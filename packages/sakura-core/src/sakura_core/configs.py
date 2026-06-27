@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     listen_host: str = "0.0.0.0"
     listen_port: int = 21229
     worker_count: int = 4
+    oss_enabled: bool = True
+    oss_base_url: str = "http://127.0.0.1:21230"
+    oss_ttl_seconds: int = 86400
+    oss_max_size_bytes: int = 33554432
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

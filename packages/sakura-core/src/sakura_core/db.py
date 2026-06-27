@@ -39,7 +39,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 async def init_db() -> None:
     # 这里 import 所有 models，确保 SQLModel.metadata 能收集到表
-    from sakura_core.models import Adapter, Session, User  # noqa: F401
+    from sakura_core.models import Adapter, AdapterToken, Session, User  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
