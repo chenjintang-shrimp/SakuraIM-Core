@@ -4,6 +4,12 @@ from sakura_protocol.messages.command import Command, CommandType
 from sakura_protocol.messages.hello import Hello
 from sakura_protocol.messages.info import Info
 from sakura_protocol.messages.message import Message, MessageType
+from sakura_protocol.messages.welcome import (
+    AttachmentAuth,
+    AttachmentCapability,
+    Welcome,
+    WelcomeCapabilities,
+)
 
 __all__ = [
     "Hello",
@@ -13,4 +19,8 @@ __all__ = [
     "Info",
     "Command",
     "CommandType",
+    "AttachmentAuth",
+    "AttachmentCapability",
+    "Welcome",
+    "WelcomeCapabilities",
 ]

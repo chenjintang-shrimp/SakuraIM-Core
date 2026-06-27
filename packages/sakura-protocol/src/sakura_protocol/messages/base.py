@@ -10,6 +10,7 @@ class MessagePackType(StrEnum):
     HELLO = "hello"
     INFO = "info"
     MESSAGE = "message"
+    WELCOME = "welcome"
 
 
 class MessageBase(BaseModel):
