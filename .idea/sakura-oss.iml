@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module external.system.id="pyproject.toml" type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$/packages/sakura-protocol">
-      <sourceFolder url="file://$MODULE_DIR$/packages/sakura-protocol" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/packages/sakura-protocol/src" isTestSource="false" />
+    <content url="file://$MODULE_DIR$/packages/sakura-oss">
+      <sourceFolder url="file://$MODULE_DIR$/packages/sakura-oss/src" />
     </content>
     <orderEntry type="jdk" jdkName="uv (SakuraIM)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

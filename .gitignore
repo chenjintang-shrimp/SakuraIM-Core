@@ -12,3 +12,4 @@ wheels/
 # others
 .env
 data/
+logs/
