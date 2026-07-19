@@ -210,9 +210,8 @@ async def dispatch_messages(connection: WebSocket):
                     ack = Ack.model_validate(data)
                 except ValidationError as e:
                     logger.warning(f"[{aid_str}] invalid Ack packet: {e}")
-                    # Use the platform-specific pid from the session context if available
-                    # For ACK errors, we don't have a specific sender_pid, so use empty string
-                    # but this could be improved by tracking the last known pid per adapter
+                    # For invalid Ack, we don't have a specific sender_pid from the packet
+                    # Use an empty string as to_pid; adapters should handle system-level errors
                     await manager.send_to(aid, Info(
                         to_aid=aid, to_pid="",
                         info_type="error",

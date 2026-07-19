@@ -519,7 +519,16 @@ async def handle_temp_session(command: Command) -> bool:
         await _notify_temp_session_created(command, temp_sid)
 
         # Notify receiver about the temporary session
-        partner_pid = str(target_user.uid)
+        # Get the platform-specific PID for the target user on the selected adapter
+        target_platform_pid = None
+        if command.args[1] in target_user.bind_platform:
+            for binding in target_user.bind_platform[command.args[1]]:
+                aid_str, pid = binding[0], binding[1]
+                if UUID(aid_str) == aid:
+                    target_platform_pid = pid
+                    break
+        
+        partner_pid = target_platform_pid if target_platform_pid else str(target_user.uid)
         await _notify_temp_session_received(
             aid, temp_sid, partner_pid, current_user.username
         )
