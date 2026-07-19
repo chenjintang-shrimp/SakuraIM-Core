@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: sakura-protocol
+Version: 0.1.0
+Summary: Shared protocol models for SakuraIM
+Requires-Python: >=3.12
+Requires-Dist: pydantic>=2.13.4

@@ -1,15 +1,1 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-
-# others
-.env
-data/
-logs/
+Nothing should be ignored since the changes only include Python source files (.py) which are core project files and not build artifacts, dependencies, or temporary files.

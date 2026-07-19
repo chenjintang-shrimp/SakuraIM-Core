@@ -423,6 +423,162 @@ async def handle_bind_user(command: Command) -> bool:
         return True
 
 
+async def handle_temp_session(command: Command) -> bool:
+    """Handle temporary session creation command.
+    
+    Temporary sessions are one-time sessions that don't persist in the database.
+    They are used for quick, ephemeral communication between users.
+    
+    Args format:
+        args[0] -> target_username
+        args[1] -> platform
+    
+    Returns:
+        bool: True if handled successfully, False otherwise
+    """
+    if command.command != CommandType.COMMAND_TEMP_SESSION:
+        return False
+
+    if len(command.args) < 2:
+        await manager.send_to(
+            command.from_aid,
+            message=Info(
+                to_aid=command.from_aid,
+                to_pid=command.sender_pid,
+                info_type="error",
+                body={"error_type": "missing_args", "detail": "username and platform required"},
+            ),
+        )
+        return False
+
+    indexs = get_global_indexes()
+    platform = indexs.get_platform(command.from_aid)
+    if platform is None:
+        logger.error(f"Adapter {command.from_aid} platform unknown")
+        return False
+
+    current_user = indexs.get_user(command.sender_pid, platform)
+    if current_user is None:
+        logger.warning(
+            f"User {command.sender_pid} didn't bind adapter {command.from_aid} in platform {platform}."
+        )
+        await manager.send_to(
+            command.from_aid,
+            message=Info(
+                to_aid=command.from_aid,
+                to_pid=command.sender_pid,
+                info_type="error",
+                body={"error_type": "user_not_bound", "user": f"{command.sender_pid}"},
+            ),
+        )
+        return False
+
+    # Find target user by username
+    target_user = indexs.get_user_by_username(command.args[0])
+    if target_user is None:
+        logger.warning(f"User {command.args[0]} not found.")
+        await manager.send_to(
+            command.from_aid,
+            message=Info(
+                to_aid=command.from_aid,
+                to_pid=command.sender_pid,
+                info_type="error",
+                body={"error_type": "user_not_found", "user": f"{command.args[0]}"},
+            ),
+        )
+        return False
+
+    # Select appropriate adapter for target user
+    try:
+        aid = select_adapter_by_platform(target_user, command.args[1], indexs)
+        if aid is None:
+            logger.warning(
+                f"User {command.args[0]} on platform {command.args[1]} has no adapters available."
+            )
+            await manager.send_to(
+                command.from_aid,
+                message=Info(
+                    to_aid=command.from_aid,
+                    to_pid=command.sender_pid,
+                    info_type="error",
+                    body={
+                        "error_type": "no_adapter_available",
+                        "user": command.args[0],
+                        "platform": command.args[1],
+                    },
+                ),
+            )
+            return False
+
+        # Generate a temporary session ID (negative to distinguish from persistent sessions)
+        temp_sid = -(int(time.time()) % 1000000)
+
+        # Create temporary session in memory only (not persisted to DB)
+        temp_session = Session(
+            sid=temp_sid,
+            source=current_user.uid,
+            source_aid=command.from_aid,
+            state=SessionState.ESTABLISHED,
+            target=target_user.uid,
+            target_aid=aid,
+        )
+
+        # Add to index but mark as temporary (won't be persisted)
+        indexs.add_session(temp_session)
+
+        logger.info(
+            f"Temporary session created: sid={temp_sid}, "
+            f"from {current_user.username} to {target_user.username}"
+        )
+
+        # Notify sender
+        await manager.send_to(
+            command.from_aid,
+            message=Info(
+                to_aid=command.from_aid,
+                to_pid=command.sender_pid,
+                info_type="info",
+                body={"event": "temp_session_created", "sid": temp_sid},
+            ),
+        )
+
+        # Notify receiver about the temporary session
+        partner_pid = str(target_user.uid)
+        await manager.send_to(
+            aid,
+            message=Info(
+                to_aid=aid,
+                to_pid=partner_pid,
+                info_type="info",
+                body={
+                    "event": "temp_session_received",
+                    "sid": temp_sid,
+                    "from_user": current_user.username,
+                },
+            ),
+        )
+
+        return True
+
+    except UserNotBindInPlatform:
+        logger.warning(
+            f"User {command.args[0]} didn't bind on platform {command.args[1]}."
+        )
+        await manager.send_to(
+            command.from_aid,
+            message=Info(
+                to_aid=command.from_aid,
+                to_pid=command.sender_pid,
+                info_type="error",
+                body={"error_type": "target_not_bound_on_platform", "user": command.args[0]},
+            ),
+        )
+        return False
+    except Exception as e:
+        logger.error(f"Exception in handle_temp_session: {e}")
+        return False
+
+
 async def handle_verify(command: Command) -> bool:
     if command.command != CommandType.COMMAND_VERIFY:
         return False
@@ -518,6 +674,7 @@ COMMAND_HANDLERS: dict[CommandType, Callable[[Command], Awaitable[bool]]] = {
     CommandType.COMMAND_RESUME: handle_resume_session,
     CommandType.COMMAND_BIND: handle_bind_user,
     CommandType.COMMAND_VERIFY: handle_verify,
+    CommandType.COMMAND_TEMP_SESSION: handle_temp_session,
 }
 
 
