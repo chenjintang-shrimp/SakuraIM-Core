@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import time
+import uuid
 from collections.abc import Awaitable, Callable
 from uuid import UUID
 
@@ -440,14 +441,10 @@ async def handle_temp_session(command: Command) -> bool:
         return False
 
     if len(command.args) < 2:
-        await manager.send_to(
-            command.from_aid,
-            message=Info(
-                to_aid=command.from_aid,
-                to_pid=command.sender_pid,
-                info_type="error",
-                body={"error_type": "missing_args", "detail": "username and platform required"},
-            ),
+        await _send_error(
+            command,
+            "missing_args",
+            detail="username and platform required",
         )
         return False
 
@@ -462,14 +459,10 @@ async def handle_temp_session(command: Command) -> bool:
         logger.warning(
             f"User {command.sender_pid} didn't bind adapter {command.from_aid} in platform {platform}."
         )
-        await manager.send_to(
-            command.from_aid,
-            message=Info(
-                to_aid=command.from_aid,
-                to_pid=command.sender_pid,
-                info_type="error",
-                body={"error_type": "user_not_bound", "user": f"{command.sender_pid}"},
-            ),
+        await _send_error(
+            command,
+            "user_not_bound",
+            user=f"{command.sender_pid}",
         )
         return False
 
@@ -477,14 +470,10 @@ async def handle_temp_session(command: Command) -> bool:
     target_user = indexs.get_user_by_username(command.args[0])
     if target_user is None:
         logger.warning(f"User {command.args[0]} not found.")
-        await manager.send_to(
-            command.from_aid,
-            message=Info(
-                to_aid=command.from_aid,
-                to_pid=command.sender_pid,
-                info_type="error",
-                body={"error_type": "user_not_found", "user": f"{command.args[0]}"},
-            ),
+        await _send_error(
+            command,
+            "user_not_found",
+            user=f"{command.args[0]}",
         )
         return False
 
@@ -495,23 +484,18 @@ async def handle_temp_session(command: Command) -> bool:
             logger.warning(
                 f"User {command.args[0]} on platform {command.args[1]} has no adapters available."
             )
-            await manager.send_to(
-                command.from_aid,
-                message=Info(
-                    to_aid=command.from_aid,
-                    to_pid=command.sender_pid,
-                    info_type="error",
-                    body={
-                        "error_type": "no_adapter_available",
-                        "user": command.args[0],
-                        "platform": command.args[1],
-                    },
-                ),
+            await _send_error(
+                command,
+                "no_adapter_available",
+                user=command.args[0],
+                platform=command.args[1],
             )
             return False
 
-        # Generate a temporary session ID (negative to distinguish from persistent sessions)
-        temp_sid = -(int(time.time()) % 1000000)
+        # Generate a collision-resistant temporary session ID
+        # Use a truncated UUID-based integer and negate it to keep temporary sessions
+        # clearly distinguished from any positive, persistent session IDs.
+        temp_sid = _generate_temp_session_id()
 
         # Create temporary session in memory only (not persisted to DB)
         temp_session = Session(
@@ -532,30 +516,12 @@ async def handle_temp_session(command: Command) -> bool:
         )
 
         # Notify sender
-        await manager.send_to(
-            command.from_aid,
-            message=Info(
-                to_aid=command.from_aid,
-                to_pid=command.sender_pid,
-                info_type="info",
-                body={"event": "temp_session_created", "sid": temp_sid},
-            ),
-        )
+        await _notify_temp_session_created(command, temp_sid)
 
         # Notify receiver about the temporary session
         partner_pid = str(target_user.uid)
-        await manager.send_to(
-            aid,
-            message=Info(
-                to_aid=aid,
-                to_pid=partner_pid,
-                info_type="info",
-                body={
-                    "event": "temp_session_received",
-                    "sid": temp_sid,
-                    "from_user": current_user.username,
-                },
-            ),
+        await _notify_temp_session_received(
+            aid, temp_sid, partner_pid, current_user.username
         )
 
         return True
@@ -564,19 +530,93 @@ async def handle_temp_session(command: Command) -> bool:
         logger.warning(
             f"User {command.args[0]} didn't bind on platform {command.args[1]}."
         )
-        await manager.send_to(
-            command.from_aid,
-            message=Info(
-                to_aid=command.from_aid,
-                to_pid=command.sender_pid,
-                info_type="error",
-                body={"error_type": "target_not_bound_on_platform", "user": command.args[0]},
-            ),
+        await _send_error(
+            command,
+            "target_not_bound_on_platform",
+            user=command.args[0],
         )
         return False
     except Exception as e:
         logger.error(f"Exception in handle_temp_session: {e}")
+        await _handle_temp_session_exception(command, e)
         return False
+
+
+async def _send_error(command: Command, error_type: str, **body: object) -> None:
+    """Send an error Info message to the command initiator."""
+    await manager.send_to(
+        command.from_aid,
+        message=Info(
+            to_aid=command.from_aid,
+            to_pid=command.sender_pid,
+            info_type="error",
+            body={"error_type": error_type, **body},
+        ),
+    )
+
+
+def _generate_temp_session_id() -> int:
+    """Generate a collision-resistant temporary session ID.
+    
+    Uses a negative ID based on truncated UUID to distinguish from persistent sessions
+    and avoid collisions in high-concurrency scenarios.
+    
+    Returns:
+        int: A negative integer suitable for use as a temporary session ID.
+    """
+    return -int(uuid.uuid4().hex[:12], 16)
+
+
+async def _notify_temp_session_created(command: Command, sid: int) -> None:
+    """Notify the sender that a temporary session has been created."""
+    await manager.send_to(
+        command.from_aid,
+        message=Info(
+            to_aid=command.from_aid,
+            to_pid=command.sender_pid,
+            info_type="info",
+            body={"event": "temp_session_created", "sid": sid},
+        ),
+    )
+
+
+async def _notify_temp_session_received(
+    aid: UUID, sid: int, partner_pid: str, from_username: str
+) -> None:
+    """Notify the receiver about an incoming temporary session."""
+    await manager.send_to(
+        aid,
+        message=Info(
+            to_aid=aid,
+            to_pid=partner_pid,
+            info_type="info",
+            body={
+                "event": "temp_session_received",
+                "sid": sid,
+                "from_user": from_username,
+            },
+        ),
+    )
+
+
+async def _handle_temp_session_exception(command: Command, exc: Exception) -> None:
+    """Handle exceptions in handle_temp_session and send appropriate error response."""
+    if isinstance(exc, UserNotBindInPlatform):
+        logger.warning(
+            f"User {command.args[0]} didn't bind on platform {command.args[1]}."
+        )
+        await _send_error(
+            command,
+            "target_not_bound_on_platform",
+            user=command.args[0],
+        )
+    else:
+        logger.error(f"Exception in handle_temp_session: {exc}")
+        await _send_error(
+            command,
+            "internal_error",
+            message="An unexpected error occurred while handling a temporary session.",
+        )
 
 
 async def handle_verify(command: Command) -> bool:
