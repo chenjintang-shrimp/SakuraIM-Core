@@ -97,3 +97,21 @@ async def get_object(sha256: str) -> FileResponse | Response:
             "ETag": sha256,
         },
     )
+
+
+@app.delete("/objects/{sha256}", dependencies=[Depends(require_adapter_token)])
+async def delete_object_endpoint(sha256: str) -> Response:
+    """Delete an object from the OSS storage.
+    
+    Args:
+        sha256: The SHA256 hash of the object to delete.
+        
+    Returns:
+        204 No Content on success, 404 if object not found.
+    """
+    sha256 = validate_sha256(sha256)
+    meta = await get_live_meta(sha256)
+    if meta is None:
+        return Response(status_code=404)
+    await delete_object(sha256)
+    return Response(status_code=204)

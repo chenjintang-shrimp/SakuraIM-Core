@@ -19,6 +19,7 @@ from sakura_core.core.global_indexes import get_global_indexes
 from sakura_core.db import AsyncSessionLocal
 from sakura_core.models import Adapter
 from sakura_protocol.messages import (
+    Ack,
     AttachmentAuth,
     AttachmentCapability,
     Command,
@@ -203,9 +204,24 @@ async def dispatch_messages(connection: WebSocket):
 
                 await dispatch_command(cmd)
 
-            # --- Ack（预留，暂不处理）---
+            # --- Ack 消息确认处理 ---
             elif msg_type == MessagePackType.ACK:
-                pass
+                try:
+                    ack = Ack.model_validate(data)
+                except ValidationError as e:
+                    logger.warning(f"[{aid_str}] invalid Ack packet: {e}")
+                    # For invalid Ack, we don't have a specific sender_pid from the packet
+                    # Use an empty string as to_pid; adapters should handle system-level errors
+                    await manager.send_to(aid, Info(
+                        to_aid=aid, to_pid="",
+                        info_type="error",
+                        body={"error_type": "invalid_packet", "detail": str(e)}
+                    ))
+                    continue
+
+                # ACK 处理逻辑：记录已确认的消息序列号，用于可靠投递
+                # 目前实现为简单的日志记录，后续可扩展为重传机制
+                logger.debug(f"[{aid_str}] received ack for seq={ack.ack_seq}")
 
             # --- 未知类型 ---
             else:

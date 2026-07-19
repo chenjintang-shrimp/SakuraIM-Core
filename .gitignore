@@ -1,15 +1,39 @@
-# Python-generated files
+```
+# Python
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+*.pyc
+*.pyo
+*.pyd
 
-# Virtual environments
-.venv
-
-# others
+# Dependencies
+.venv/
+venv/
+env/
 .env
-data/
-logs/
+.env.local
+.env.*
+
+# Logs
+*.log
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Build
+dist/
+build/
+target/
+
+# OS
+.DS_Store
+Thumbs.db
+```
